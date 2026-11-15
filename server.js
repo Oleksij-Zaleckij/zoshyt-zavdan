@@ -31,6 +31,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS tasks (
   updated_at INTEGER NOT NULL
 )`);
 
+try { db.exec("ALTER TABLE tasks ADD COLUMN prio INTEGER NOT NULL DEFAULT 0"); } catch (e) { /* колонка вже є */ }
+
 // Перевірка підпису Telegram (initData)
 function verifyInitData(initData) {
   if (!initData) return null;
@@ -77,7 +79,7 @@ async function auth(req, res, next) {
   next();
 }
 
-const out = r => ({ id: r.id, t: r.title, note: r.note, due: r.due, done: !!r.done, by: r.by_name, ts: r.created_at });
+const out = r => ({ id: r.id, t: r.title, note: r.note, due: r.due, done: !!r.done, prio: r.prio ? 1 : 0, by: r.by_name, ts: r.created_at });
 const clean = (s, n) => String(s == null ? "" : s).trim().slice(0, n);
 const okDate = s => s === "" || /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -90,11 +92,11 @@ app.get("/api/tasks", auth, (req, res) => {
 });
 
 app.post("/api/tasks", auth, (req, res) => {
-  const title = clean(req.body.t, 160), note = clean(req.body.note, 300), due = clean(req.body.due, 10);
+  const title = clean(req.body.t, 160), note = clean(req.body.note, 300), due = clean(req.body.due, 10), prio = req.body.prio ? 1 : 0;
   if (!title || !okDate(due)) return res.status(400).json({ error: "bad_request" });
   const now = Date.now();
-  const info = db.prepare("INSERT INTO tasks (title,note,due,done,by_id,by_name,created_at,updated_at) VALUES (?,?,?,0,?,?,?,?)")
-    .run(title, note, due, req.tgUser.id, req.tgUser.name, now, now);
+  const info = db.prepare("INSERT INTO tasks (title,note,due,done,prio,by_id,by_name,created_at,updated_at) VALUES (?,?,?,0,?,?,?,?,?)")
+    .run(title, note, due, prio, req.tgUser.id, req.tgUser.name, now, now);
   res.status(201).json(out(db.prepare("SELECT * FROM tasks WHERE id=?").get(info.lastInsertRowid)));
 });
 
@@ -106,6 +108,7 @@ app.patch("/api/tasks/:id", auth, (req, res) => {
   if (b.note !== undefined) f.note = clean(b.note, 300);
   if (b.due !== undefined) { f.due = clean(b.due, 10); if (!okDate(f.due)) return res.status(400).json({ error: "bad_request" }); }
   if (b.done !== undefined) f.done = b.done ? 1 : 0;
+  if (b.prio !== undefined) f.prio = b.prio ? 1 : 0;
   const keys = Object.keys(f);
   if (keys.length) {
     db.prepare("UPDATE tasks SET " + keys.map(k => k + "=?").join(",") + ",updated_at=? WHERE id=?")
@@ -114,7 +117,6 @@ app.patch("/api/tasks/:id", auth, (req, res) => {
   res.json(out(db.prepare("SELECT * FROM tasks WHERE id=?").get(row.id)));
 });
 
-app.delete("/api/tasks/:id", (req, res, next) => next());
 app.delete("/api/tasks/:id", auth, (req, res) => {
   db.prepare("DELETE FROM tasks WHERE id=?").run(req.params.id);
   res.status(204).end();
