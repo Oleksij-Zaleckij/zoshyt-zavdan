@@ -50,6 +50,9 @@ input,textarea{background:var(--card);border:1px solid var(--line);border-radius
 .day.late{color:var(--late)}
 .has-bg .day{background:var(--bg);background:color-mix(in srgb,var(--bg) 78%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:10px;padding-left:10px;padding-right:10px;margin-top:2px}
 .has-bg .add{background:var(--bg);background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.sr{position:relative;margin-bottom:7px;border-radius:14px;overflow:hidden}
+.sr .card{margin-bottom:0;position:relative;touch-action:pan-y;will-change:transform;transition:transform .2s}
+.rm{position:absolute;top:0;right:0;bottom:0;width:88px;border:0;border-radius:0;background:var(--late);color:#fff;font-size:13px;font-weight:800}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px 11px;margin-bottom:7px;box-shadow:var(--sh)}
 .card.late{box-shadow:inset 3px 0 0 var(--late),var(--sh)}
 .card.today{box-shadow:inset 3px 0 0 var(--acc),var(--sh)}
@@ -76,6 +79,10 @@ input,textarea{background:var(--card);border:1px solid var(--line);border-radius
 .add #nt{flex:1}
 .toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 15px;border-radius:12px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}
 .toast.on{opacity:1}
+.toast.act{pointer-events:auto;display:flex;gap:12px;align-items:center}
+.toast button{border:0;background:none;color:var(--acc);font-weight:800;padding:0;font-size:13px;filter:brightness(1.3)}
+.pr{flex:none;width:40px;padding:0;font-size:16px;filter:grayscale(1) opacity(.55)}
+.pr[aria-pressed=true]{filter:none;border-color:var(--late);background:color-mix(in srgb,var(--late) 14%,var(--card))}
 .sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end}
 .sheet[hidden]{display:none}
 .sheet-bg{position:absolute;inset:0;background:rgba(10,10,25,.45)}
@@ -114,7 +121,7 @@ input[type=range]{width:100%;border:0;background:none;padding:0;accent-color:var
  <div id="list"></div>
  <div class="add">
   <div class="r"><input type="text" id="txt" placeholder="Нове завдання…" maxlength="160" aria-label="Нове завдання"><button class="pri" id="addbtn">Додати</button></div>
-  <div class="r"><input type="date" id="due" aria-label="Термін виконання"><input type="text" id="nt" placeholder="Коментар (необов’язково)" maxlength="300" aria-label="Коментар"></div>
+  <div class="r"><button class="pr" id="pr" aria-pressed="false" aria-label="Важливо" title="Важливо">🔥</button><input type="date" id="due" aria-label="Термін виконання"><input type="text" id="nt" placeholder="Коментар (необов’язково)" maxlength="300" aria-label="Коментар"></div>
  </div>
 </div>
 <div class="sheet" id="sheet" hidden>
@@ -227,18 +234,27 @@ function iso(d){var m=d.getMonth()+1,x=d.getDate();return d.getFullYear()+"-"+(m
 function pd(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
 function fmt(s){return pd(s).toLocaleDateString("uk-UA",{day:"numeric",month:"short"})}
 function fmtLong(s){var t=pd(s).toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long"});return t.charAt(0).toUpperCase()+t.slice(1)}
-function toast(m){var t=$("toast");t.textContent=m;t.className="toast on";setTimeout(function(){t.className="toast"},2400)}
+var toastT=null;
+function toast(m,undo){
+ var t=$("toast");clearTimeout(toastT);t.textContent=m;
+ if(undo){var b=document.createElement("button");b.textContent="Скасувати";b.setAttribute("data-undo","1");t.appendChild(b)}
+ t.className="toast on"+(undo?" act":"");
+ toastT=setTimeout(function(){t.className="toast"},undo?6000:2400);
+}
 function api(method,url,body){
  return fetch(url,{method:method,headers:{"Content-Type":"application/json","Authorization":"tma "+(tg?tg.initData:"")},body:body?JSON.stringify(body):undefined})
  .then(function(r){if(!r.ok){var e=new Error(r.status);e.status=r.status;throw e}return r.status===204?null:r.json()});
 }
 function load(){
- return api("GET","/api/tasks").then(function(d){all=d;state="ok";render()}).catch(function(e){
+ return api("GET","/api/tasks").then(function(d){if(pending)d=d.filter(function(x){return String(x.id)!==String(pending.id)});all=d;state="ok";render()}).catch(function(e){
   if(e.status===401||e.status===403){state="denied";render()}else if(state==="loading"){state="error";render()}
  });
 }
-function byTs(a,b){if(a.done!==b.done)return a.done?1:-1;return a.ts-b.ts}
+function byTs(a,b){if(a.done!==b.done)return a.done?1:-1;if((a.prio||0)!==(b.prio||0))return b.prio-a.prio;return a.ts-b.ts}
+var openCard=null;
+function closeSwipe(){if(openCard){openCard.style.transform="";openCard=null}}
 function render(){
+ openCard=null;
  var box=$("list"),keep=box.scrollTop;
  if(state==="denied"){box.innerHTML='<div class="deny">Немає доступу.<br>Відкрийте застосунок з Telegram і переконайтеся, що ви в групі команди.</div>';return}
  if(state==="error"){box.innerHTML='<div class="deny">Не вдалося завантажити завдання. Спробуйте ще раз пізніше.</div>';return}
@@ -273,24 +289,42 @@ function render(){
   h+='<div class="day'+(k==="overdue"?" late":"")+'"><span>'+esc(label)+'</span><span>'+g.length+'</span></div>';
   g.forEach(function(t){
    var dl=(k==="overdue")?'<span class="by" style="margin:0">'+fmt(t.due)+'</span>':"";
-   h+='<div class="card'+(t.done?" done":"")+cls+'"><div class="row"><input type="checkbox" class="ck" data-k="'+t.id+'"'+(t.done?" checked":"")+' aria-label="Зроблено"><span class="tt" data-e="'+t.id+'">'+esc(t.t)+'</span>'+dl+'<button class="x" data-e="'+t.id+'" aria-label="Редагувати">✎</button></div>';
+   h+='<div class="sr"><button class="rm" data-del="'+t.id+'" tabindex="-1" aria-label="Видалити">🗑 Видалити</button><div class="card'+(t.done?" done":"")+cls+'"><div class="row"><input type="checkbox" class="ck" data-k="'+t.id+'"'+(t.done?" checked":"")+' aria-label="Зроблено"><span class="tt" data-e="'+t.id+'">'+(t.prio?'🔥 ':'')+esc(t.t)+'</span>'+dl+'<button class="x" data-e="'+t.id+'" aria-label="Редагувати">✎</button></div>';
    if(t.note&&editing!==t.id)h+='<div class="nt">'+esc(t.note)+'</div>';
    if(editing===t.id){
-    h+='<div class="edit"><input type="text" id="e_t" value="'+esc(t.t)+'" maxlength="160" aria-label="Назва"><div class="r"><input type="date" id="e_d" value="'+esc(t.due||"")+'" aria-label="Термін"></div><textarea id="e_n" maxlength="300" placeholder="Коментар" aria-label="Коментар">'+esc(t.note||"")+'</textarea><div class="r"><button class="pri" data-save="'+t.id+'">Зберегти</button><button data-cancel="1">Скасувати</button><button class="danger" data-del="'+t.id+'">Видалити</button></div></div>';
+    h+='<div class="edit"><input type="text" id="e_t" value="'+esc(t.t)+'" maxlength="160" aria-label="Назва"><div class="r"><button class="pr" id="e_p" data-ep="1" aria-pressed="'+(t.prio?"true":"false")+'" aria-label="Важливо" title="Важливо">🔥</button><input type="date" id="e_d" value="'+esc(t.due||"")+'" aria-label="Термін"></div><textarea id="e_n" maxlength="300" placeholder="Коментар" aria-label="Коментар">'+esc(t.note||"")+'</textarea><div class="r"><button class="pri" data-save="'+t.id+'">Зберегти</button><button data-cancel="1">Скасувати</button><button class="danger" data-del="'+t.id+'">Видалити</button></div></div>';
    }
-   h+='<div class="by">додав(ла): '+esc(t.by)+'</div></div>';
+   h+='<div class="by">додав(ла): '+esc(t.by)+'</div></div></div>';
   });
  });
  box.innerHTML=h||'<div class="empty"><big>📓</big>'+(total?"Нічого не знайдено.":"У зошиті ще немає завдань.<br>Додайте перше знизу.")+'</div>';
  box.scrollTop=keep;
 }
+var pending=null;
+function flushDel(){
+ if(!pending)return;var p=pending;pending=null;clearTimeout(p.timer);
+ api("DELETE","/api/tasks/"+p.id).then(load).catch(fail);
+}
+function delTask(id){
+ flushDel();
+ var t=find(id);if(!t)return;
+ all=all.filter(function(x){return String(x.id)!==String(id)});render();
+ pending={id:id,task:t,timer:setTimeout(flushDel,6000)};
+ toast("Завдання видалено",true);
+}
+function undoDel(){
+ if(!pending)return;var p=pending;pending=null;clearTimeout(p.timer);
+ all.push(p.task);render();$("toast").className="toast";
+}
+window.addEventListener("pagehide",flushDel);
+document.addEventListener("visibilitychange",function(){if(document.hidden)flushDel()});
 function fail(){toast("Не вдалося зберегти. Спробуйте ще раз.");load()}
 function find(id){return all.filter(function(t){return String(t.id)===String(id)})[0]}
 function patch(id,o){var t=find(id);if(t)Object.assign(t,o);render();api("PATCH","/api/tasks/"+id,o).then(load).catch(fail)}
 function add(){
  var v=$("txt").value.trim();if(!v){$("txt").focus();return}
- var body={t:v,due:$("due").value,note:$("nt").value.trim()};
- $("txt").value="";$("due").value="";$("nt").value="";
+ var body={t:v,due:$("due").value,note:$("nt").value.trim(),prio:$("pr").getAttribute("aria-pressed")==="true"?1:0};
+ $("pr").setAttribute("aria-pressed","false");$("txt").value="";$("due").value="";$("nt").value="";
  api("POST","/api/tasks",body).then(load).catch(fail);
 }
 $("addbtn").onclick=add;
@@ -323,7 +357,12 @@ document.addEventListener("change",function(e){
  if(e.target.id==="dim"||e.target.id==="accIn"){saveSettings();if(e.target.id==="accIn")renderSheet();return}
  var k=e.target.dataset&&e.target.dataset.k;if(k)patch(k,{done:e.target.checked});
 });
+$("pr").onclick=function(){this.setAttribute("aria-pressed",this.getAttribute("aria-pressed")==="true"?"false":"true")};
 document.addEventListener("click",function(e){
+ if(e.target.closest("[data-undo]")){undoDel();return}
+ var ep=e.target.closest("[data-ep]");
+ if(ep){ep.setAttribute("aria-pressed",ep.getAttribute("aria-pressed")==="true"?"false":"true");return}
+ if(openCard&&!e.target.closest("[data-del]")){closeSwipe();return}
  var th=e.target.closest("[data-th]");
  if(th){S.theme=th.dataset.th;applyTheme();saveSettings();renderSheet();return}
  var bs=e.target.closest("[data-base]");
@@ -337,11 +376,35 @@ document.addEventListener("click",function(e){
  var ed=e.target.closest("[data-e]");if(ed){editing=String(editing)===ed.dataset.e?null:+ed.dataset.e;render();return}
  var sv=e.target.closest("[data-save]");
  if(sv){var v=$("e_t").value.trim();if(!v){toast("Назва не може бути порожньою");return}
-  var id=sv.dataset.save;editing=null;patch(id,{t:v,due:$("e_d").value,note:$("e_n").value.trim()});return}
+  var id=sv.dataset.save;editing=null;patch(id,{t:v,due:$("e_d").value,note:$("e_n").value.trim(),prio:$("e_p").getAttribute("aria-pressed")==="true"?1:0});return}
  if(e.target.closest("[data-cancel]")){editing=null;render();return}
  var d=e.target.closest("[data-del]");
- if(d){var id2=d.dataset.del;editing=null;all=all.filter(function(t){return String(t.id)!==id2});render();api("DELETE","/api/tasks/"+id2).then(load).catch(fail)}
+ if(d){editing=null;delTask(d.dataset.del)}
 });
+(function(){
+ var W=88,sx=0,sy=0,lock=null,card=null,base=0,tx=0,L=$("list");
+ L.addEventListener("touchstart",function(e){
+  var c=e.target.closest(".card");
+  if(openCard&&openCard!==c)closeSwipe();
+  card=c;lock=null;if(!c||editing!==null)return;
+  var t=e.touches[0];sx=t.clientX;sy=t.clientY;base=(c===openCard)?-W:0;tx=base;
+ },{passive:true});
+ L.addEventListener("touchmove",function(e){
+  if(!card||editing!==null)return;
+  var t=e.touches[0],dx=t.clientX-sx,dy=t.clientY-sy;
+  if(lock===null&&(Math.abs(dx)>8||Math.abs(dy)>8))lock=Math.abs(dx)>Math.abs(dy)?"x":"y";
+  if(lock!=="x")return;
+  tx=Math.max(-W-20,Math.min(0,base+dx));
+  card.style.transition="none";card.style.transform="translateX("+tx+"px)";
+ },{passive:true});
+ L.addEventListener("touchend",function(){
+  if(!card||lock!=="x"){card=null;return}
+  card.style.transition="";
+  if(tx<-W/2){card.style.transform="translateX(-"+W+"px)";openCard=card}
+  else{card.style.transform="";if(openCard===card)openCard=null}
+  card=null;
+ });
+})();
 $("share").onclick=function(){
  var act=all.filter(function(t){return!t.done}).sort(function(a,b){var x=a.due||"9999",y=b.due||"9999";return x<y?-1:x>y?1:a.ts-b.ts});
  if(!act.length){toast("Немає активних завдань");return}
@@ -351,7 +414,7 @@ $("share").onclick=function(){
  else if(navigator.clipboard){navigator.clipboard.writeText(out).then(function(){toast("Скопійовано")})}
 };
 render();load();
-setInterval(function(){if(!document.hidden&&editing===null&&state==="ok")load()},10000);
+setInterval(function(){if(!document.hidden&&editing===null&&!openCard&&state==="ok")load()},10000);
 </script>
 </body>
 </html>
