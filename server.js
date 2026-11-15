@@ -122,4 +122,73 @@ app.delete("/api/tasks/:id", auth, (req, res) => {
   res.status(204).end();
 });
 
+// ---------- Нагадування в групу ----------
+const TZ = process.env.TZ_NAME || "Europe/Kiev";
+const APP_LINK = process.env.APP_LINK || "https://t.me/zoshyt_zavdan_bot/alewex";
+db.exec("CREATE TABLE IF NOT EXISTS sent (k TEXT PRIMARY KEY, at INTEGER NOT NULL)");
+
+// Дні тижня: 1 = пн ... 7 = нд. Час за київським часом.
+const REMINDERS = [
+  { id: "digest", time: "09:00", days: [1, 2, 3, 4, 5, 6], type: "digest" },
+  { id: "lunch1", time: "10:30", days: [1, 2, 3, 4, 5], text: "🍽 Нагадування: обіди потрібно замовити до 12:00!" },
+  { id: "lunch2", time: "11:40", days: [1, 2, 3, 4, 5], text: "⏰ Лишилось 20 хвилин! Хто ще не замовив обід, замовляйте до 12:00." }
+];
+
+function nowLocal() {
+  const p = {};
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", weekday: "short", hourCycle: "h23"
+  }).formatToParts(new Date());
+  for (const x of parts) p[x.type] = x.value;
+  const wd = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[p.weekday];
+  return { date: p.year + "-" + p.month + "-" + p.day, time: p.hour + ":" + p.minute, wd };
+}
+const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+async function sendTG(text) {
+  try {
+    const r = await fetch("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: TEAM_CHAT_ID,
+        text: text.slice(0, 4000),
+        reply_markup: { inline_keyboard: [[{ text: "📓 Відкрити зошит", url: APP_LINK }]] }
+      })
+    });
+    const j = await r.json();
+    if (!j.ok) console.error("sendMessage:", j.description);
+    return !!j.ok;
+  } catch (e) { console.error("sendMessage:", e.message); return false; }
+}
+
+function digestText(today) {
+  const rows = db.prepare("SELECT * FROM tasks WHERE done=0 AND due<>'' AND due<=? ORDER BY prio DESC, due, created_at").all(today);
+  const noDue = db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE done=0 AND due=''").get().n;
+  if (!rows.length) return null;
+  const line = r => (r.prio ? "🔥 " : "• ") + r.title + (r.due < today ? " (до " + r.due.slice(8, 10) + "." + r.due.slice(5, 7) + ")" : "");
+  const late = rows.filter(r => r.due < today), now = rows.filter(r => r.due === today);
+  let t = "☀️ Доброго ранку! Завдання на сьогодні:\n";
+  if (now.length) t += "\n" + now.slice(0, 25).map(line).join("\n") + "\n";
+  if (late.length) t += "\n⚠️ Прострочені:\n" + late.slice(0, 25).map(line).join("\n") + "\n";
+  if (noDue) t += "\nЩе без терміну: " + noDue;
+  return t.trim();
+}
+
+async function tick() {
+  const n = nowLocal();
+  for (const r of REMINDERS) {
+    if (!r.days.includes(n.wd)) continue;
+    const diff = toMin(n.time) - toMin(r.time);
+    if (diff < 0 || diff > 10) continue; // не надсилати надто пізно
+    const key = r.id + ":" + n.date;
+    if (db.prepare("INSERT OR IGNORE INTO sent (k, at) VALUES (?, ?)").run(key, Date.now()).changes === 0) continue;
+    const text = r.type === "digest" ? digestText(n.date) : r.text;
+    if (!text) continue;
+    if (!(await sendTG(text))) db.prepare("DELETE FROM sent WHERE k=?").run(key); // повторимо наступної хвилини
+  }
+}
+if (TEAM_CHAT_ID) { setInterval(() => tick().catch(e => console.error("tick:", e.message)), 30 * 1000); }
+
 app.listen(PORT, () => console.log("Зошит завдань працює на порту " + PORT));
