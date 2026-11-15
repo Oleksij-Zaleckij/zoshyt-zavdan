@@ -131,7 +131,7 @@ db.exec("CREATE TABLE IF NOT EXISTS sent (k TEXT PRIMARY KEY, at INTEGER NOT NUL
 const REMINDERS = [
   { id: "digest", time: "09:00", days: [1, 2, 3, 4, 5, 6], type: "digest" },
   { id: "lunch1", time: "10:30", days: [1, 2, 3, 4, 5], text: "🍽 Нагадування: обіди потрібно замовити до 12:00!" },
-  { id: "lunch2", time: "14:31", days: [1, 2, 3, 4, 5], text: "⏰ Лишилось 20 хвилин! Хто ще не замовив обід, замовляйте до 12:00." }
+  { id: "lunch2", time: "11:30", days: [1, 2, 3, 4, 5], text: "⏰ Лишилось 20 хвилин! Хто ще не замовив обід, замовляйте до 12:00." }
 ];
 
 function nowLocal() {
