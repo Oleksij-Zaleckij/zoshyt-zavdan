@@ -40,8 +40,21 @@ input,textarea{background:var(--card);border:1px solid var(--line);border-radius
 .sub{color:var(--mute);font-size:12px;margin-top:1px}
 .ib{width:36px;height:36px;padding:0;display:grid;place-items:center;font-size:16px;border-radius:50%}
 .tools{flex:none;padding:8px 16px 4px}
-.tabs{display:flex;gap:6px;margin-bottom:8px}
-.chip{border-radius:20px;padding:5px 13px;font-size:12.5px}
+.tabs{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.more{padding:14px 0 4px;text-align:center}
+.strip{flex:none;position:relative;display:flex;gap:6px;overflow-x:auto;padding:4px 16px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.strip::-webkit-scrollbar{display:none}
+.dc{flex:none;width:46px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 0 5px;border-radius:14px;font-size:11px;color:var(--mute);font-weight:600}
+.dc b{font-size:15px;color:var(--ink);font-weight:800;line-height:1.2}
+.dc i{font-style:normal;font-size:10px;min-width:14px;height:14px;line-height:14px;text-align:center;color:var(--accfg);background:var(--acc);border-radius:7px;padding:0 4px;font-weight:800}
+.dc i.e{visibility:hidden}
+.dc.we span{color:var(--late)}
+.dc.td{border-color:var(--acc)}
+.dc.on{background:var(--acc);border-color:var(--acc)}
+.dc.on span,.dc.on b{color:var(--accfg)}
+.dc.on i{background:var(--accfg);color:var(--acc)}
+.chip{border-radius:20px;padding:5px 13px;font-size:12.5px;flex:none;white-space:nowrap}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .tools input{width:100%;background:var(--card)}
 #list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 16px 16px}
@@ -114,6 +127,7 @@ input[type=range]{width:100%;border:0;background:none;padding:0;accent-color:var
   <button class="ib" id="themeBtn" aria-label="Тема оформлення">🎨</button>
   <button class="ib" id="share" aria-label="Поділитися">↗</button>
  </div>
+ <div class="strip" id="strip"></div>
  <div class="tools">
   <div class="tabs" id="tabs"></div>
   <input id="q" type="search" placeholder="Пошук по завданнях…" aria-label="Пошук">
@@ -131,7 +145,7 @@ input[type=range]{width:100%;border:0;background:none;padding:0;accent-color:var
 <input type="file" id="file" accept="image/*" hidden>
 <div class="toast" id="toast"></div>
 <script>
-var tg=window.Telegram&&window.Telegram.WebApp,all=[],filter="open",editing=null,query="",state="loading";
+var tg=window.Telegram&&window.Telegram.WebApp,all=[],filter="today",selDay=null,stripInit=false,editing=null,query="",state="loading";
 var SK="zoshyt-settings",BK="zoshyt-bg";
 var S={theme:"auto",base:"light",accent:"#4f46e5",dim:55},bgImg=null;
 var THEMES=[
@@ -262,17 +276,30 @@ function render(){
  var total=all.length,done=all.filter(function(t){return t.done}).length,pc=total?Math.round(done/total*100):0;
  $("pct").textContent=pc+"%";$("arc").style.strokeDashoffset=226-226*pc/100;
  $("sub").textContent=total?"Зроблено "+done+" із "+total:"Поки що порожньо";
- var tabs=[["open","Не зроблені"],["done","Зроблені"],["all","Усі"]];
- $("tabs").innerHTML=tabs.map(function(t){return'<button class="chip'+(filter===t[0]?" on":"")+'" data-f="'+t[0]+'">'+t[1]+'</button>'}).join("");
+ var tabs=[["today","Сьогодні"],["open","Не зроблені"],["done","Зроблені"],["all","Усі"]];
+ $("tabs").innerHTML=tabs.map(function(t){return'<button class="chip'+(filter===t[0]&&!selDay?" on":"")+'" data-f="'+t[0]+'">'+t[1]+'</button>'}).join("");
+ var cnt={};
+ all.forEach(function(t){if(t.due&&!t.done)cnt[t.due]=(cnt[t.due]||0)+1});
+ var st=$("strip"),keepX=st.scrollLeft,sh="";
+ for(var i=-7;i<=45;i++){
+  var dd=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i),ds=iso(dd),c=cnt[ds]||0,wk=dd.getDay();
+  sh+='<button class="dc'+(selDay===ds?" on":"")+(ds===today?" td":"")+((wk===0||wk===6)?" we":"")+'" data-day="'+ds+'" aria-label="'+esc(fmtLong(ds))+'"><span>'+dd.toLocaleDateString("uk-UA",{weekday:"short"})+'</span><b>'+dd.getDate()+'</b><i'+(c?"":' class="e"')+'>'+(c||0)+'</i></button>';
+ }
+ st.innerHTML=sh;
+ if(!stripInit){stripInit=true;var tdEl=st.querySelector(".td");if(tdEl)st.scrollLeft=Math.max(0,tdEl.offsetLeft-60)}else st.scrollLeft=keepX;
  var q=query.toLowerCase();
  var arr=all.filter(function(t){
-  if(filter==="open"&&t.done)return false;
-  if(filter==="done"&&!t.done)return false;
+  if(selDay){if(t.due!==selDay)return false}
+  else{
+   if(filter==="today"&&(t.done||(t.due&&t.due>today)))return false;
+   if(filter==="open"&&t.done)return false;
+   if(filter==="done"&&!t.done)return false;
+  }
   return!q||((t.t||"")+" "+(t.note||"")).toLowerCase().indexOf(q)>=0;
  });
  var groups={};
  arr.forEach(function(t){
-  var k=t.due?(!t.done&&t.due<today?"overdue":t.due):"none";
+  var k=t.due?(!selDay&&!t.done&&t.due<today?"overdue":t.due):"none";
   (groups[k]=groups[k]||[]).push(t);
  });
  var dates=Object.keys(groups).filter(function(k){return k!=="overdue"&&k!=="none"}).sort();
@@ -297,7 +324,10 @@ function render(){
    h+='<div class="by">додав(ла): '+esc(t.by)+'</div></div></div>';
   });
  });
- box.innerHTML=h||'<div class="empty"><big>📓</big>'+(total?"Нічого не знайдено.":"У зошиті ще немає завдань.<br>Додайте перше знизу.")+'</div>';
+ var up=all.filter(function(t){return!t.done&&t.due&&t.due>today}).length;
+ var more=(filter==="today"&&!selDay&&!q&&up)?'<div class="more"><button class="chip" data-f="open">Попереду ще '+up+' → показати</button></div>':"";
+ var emptyMsg='<div class="empty"><big>📓</big>'+(!total?"У зошиті ще немає завдань.<br>Додайте перше знизу.":(selDay?"На цей день завдань немає.":(filter==="today"&&!q?"На сьогодні завдань немає 🎉":"Нічого не знайдено.")))+'</div>';
+ box.innerHTML=(h||emptyMsg)+more;
  box.scrollTop=keep;
 }
 var pending=null;
@@ -323,7 +353,7 @@ function find(id){return all.filter(function(t){return String(t.id)===String(id)
 function patch(id,o){var t=find(id);if(t)Object.assign(t,o);render();api("PATCH","/api/tasks/"+id,o).then(load).catch(fail)}
 function add(){
  var v=$("txt").value.trim();if(!v){$("txt").focus();return}
- var body={t:v,due:$("due").value,note:$("nt").value.trim(),prio:$("pr").getAttribute("aria-pressed")==="true"?1:0};
+ var body={t:v,due:$("due").value||selDay||"",note:$("nt").value.trim(),prio:$("pr").getAttribute("aria-pressed")==="true"?1:0};
  $("pr").setAttribute("aria-pressed","false");$("txt").value="";$("due").value="";$("nt").value="";
  api("POST","/api/tasks",body).then(load).catch(fail);
 }
@@ -372,7 +402,9 @@ document.addEventListener("click",function(e){
  if(e.target.closest("[data-pick]")){$("file").click();return}
  if(e.target.closest("[data-rmbg]")){try{localStorage.removeItem(BK)}catch(x){}bgImg=null;applyTheme();renderSheet();return}
  if(e.target.closest("[data-close]")){$("sheet").hidden=true;return}
- var f=e.target.closest("[data-f]");if(f){filter=f.dataset.f;$("list").scrollTop=0;render();return}
+ var dc=e.target.closest("[data-day]");
+ if(dc){selDay=selDay===dc.dataset.day?null:dc.dataset.day;$("list").scrollTop=0;render();return}
+ var f=e.target.closest("[data-f]");if(f){filter=f.dataset.f;selDay=null;$("list").scrollTop=0;render();return}
  var ed=e.target.closest("[data-e]");if(ed){editing=String(editing)===ed.dataset.e?null:+ed.dataset.e;render();return}
  var sv=e.target.closest("[data-save]");
  if(sv){var v=$("e_t").value.trim();if(!v){toast("Назва не може бути порожньою");return}
