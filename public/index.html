@@ -6,116 +6,79 @@
 <title>Зошит завдань</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);
---bg:#f5f6fa;--card:#fff;--ink:#1f2433;--mute:#7a8094;--line:#e6e8f0;--acc:#4f46e5;--accfg:#fff;
---s1:#3b82f6;--s2:#f97316;--s3:#8b5cf6;--s4:#10b981;--s5:#ec4899;--s6:#94a3b8}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13151d;--card:#1c1f2b;--ink:#eceef6;--mute:#8d93aa;--line:#2c3040;--acc:#818cf8;--accfg:#13151d}}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
+:root{--bg:#f5f6fa;--card:#fff;--ink:#1f2433;--mute:#7a8094;--line:#e6e8f0;--acc:#4f46e5;--accfg:#fff;--late:#e11d48}
+@media (prefers-color-scheme:dark){:root{--bg:#13151d;--card:#1c1f2b;--ink:#eceef6;--mute:#8d93aa;--line:#2c3040;--acc:#818cf8;--accfg:#13151d}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 Manrope,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
-.wrap{max-width:980px;margin:0 auto;padding:20px 16px calc(120px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:1fr 260px;gap:24px}
-@media(max-width:800px){.wrap{grid-template-columns:1fr}}
-.head{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
-.hl{display:flex;align-items:center;gap:16px}
-.ring{position:relative;width:64px;height:64px;flex:none;color:var(--acc)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:760px;margin:0 auto}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 12px;font-weight:600}
+input,textarea{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.pri{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.top{flex:none;display:flex;align-items:center;gap:12px;padding:12px 16px 6px}
+.ring{position:relative;width:52px;height:52px;flex:none;color:var(--acc)}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .ring circle{fill:none;stroke-width:8;stroke-linecap:round}
-.ring .bg{stroke:var(--line)}.ring .fg{stroke:currentColor;stroke-dasharray:226;stroke-dashoffset:226;transition:stroke-dashoffset .5s}
-.ring b{position:absolute;inset:0;display:grid;place-items:center;font:800 14px Manrope,sans-serif;color:var(--ink)}
-h1{font:800 clamp(22px,5vw,30px)/1.15 Manrope,sans-serif;margin:0;text-transform:capitalize;letter-spacing:-.02em}
-.sub{color:var(--mute);font-size:14px;margin-top:2px}
-.nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-button,input,select{font:inherit;color:inherit}
-button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:9px 13px;font-weight:600}
-button:hover{border-color:var(--acc)}
-.head .go,.pri{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
-:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
-input,select{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.chip{border-radius:20px;padding:6px 14px;font-size:14px;font-weight:600}
+.ring .bg{stroke:var(--line)}
+.ring .fg{stroke:currentColor;stroke-dasharray:226;stroke-dashoffset:226;transition:stroke-dashoffset .5s}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:800}
+.ttl{flex:1;min-width:0}
+.ttl h1{font-size:20px;line-height:1.2;margin:0}
+.sub{color:var(--mute);font-size:13px}
+.tools{flex:none;padding:6px 16px 8px}
+.tabs{display:flex;gap:8px;margin-bottom:8px}
+.chip{border-radius:20px;padding:6px 14px;font-size:14px}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.note{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:14px;color:var(--mute)}
-.shelf{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px 6px;margin-bottom:14px}
-.shelf h2{font:800 15px Manrope,sans-serif;margin:0 0 4px;display:flex;align-items:center;gap:8px}
-.shelf h2::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--c)}
-.shelf h2 span:last-child{margin-left:auto;color:var(--mute);font-weight:600;font-size:13px}
-.task{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
-.shelf h2+.task{border-top:0}
-.task input{appearance:none;-webkit-appearance:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);padding:0;flex:none;cursor:pointer;display:grid;place-items:center}
-.task input:hover{border-color:var(--acc)}
-.task input:checked{background:var(--acc);border-color:var(--acc)}
-.task input:checked::after{content:"✓";color:var(--accfg);font-weight:800;font-size:14px}
-.task .t{flex:1;word-break:break-word}
-.task.done .t{text-decoration:line-through;opacity:.45}
-.task time{font-weight:700;font-size:13px;color:var(--mute)}
-.by{font-size:12px;color:var(--mute)}
-.x{border:0;background:none;color:var(--mute);padding:2px 8px;font-size:20px}
-aside h3{margin:0 0 6px 8px;font:800 14px Manrope,sans-serif;color:var(--mute)}
-aside .box{margin-bottom:18px}
-.day{display:flex;justify-content:space-between;width:100%;border:0;border-radius:10px;padding:8px 10px;background:none;font-weight:400;text-align:left}
-.day:hover{background:var(--card)}.day.cur{background:var(--card);font-weight:800;box-shadow:inset 3px 0 0 var(--acc)}
-.mute{color:var(--mute);font-size:14px}
-.empty{padding:40px 16px;text-align:center;color:var(--mute)}
-.empty big{display:block;font-size:40px;margin-bottom:6px}
-.add{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,var(--bg) 30%);z-index:5}
-.add div{max-width:980px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:8px;box-shadow:0 6px 24px rgba(30,30,70,.12)}
-.add input[type=text]{flex:1 1 180px;border-color:transparent}
-.add input[type=time],.add select{border-color:transparent;background:var(--bg)}
-#carry button{margin-bottom:14px}
-dialog{border:0;border-radius:20px;max-width:380px;background:var(--card);color:var(--ink);padding:22px}
-dialog::backdrop{background:rgba(10,10,30,.5)}
-dialog h2{font:800 18px Manrope,sans-serif;margin:0 0 10px}
-dialog ol{padding-left:20px;margin:0 0 16px}
-.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
-.toast.on{opacity:1}
-
-.wrap{display:block;max-width:760px}
-.head{margin-bottom:16px}
-.stats{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
-.search{flex:1 1 160px}
-.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:10px}
+.tools input{width:100%}
+#list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 16px 16px}
+.day{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:baseline;background:var(--bg);padding:10px 2px 6px;font-weight:800;font-size:14px}
+.day span:last-child{color:var(--mute);font-weight:600;font-size:13px}
+.day.late{color:var(--late)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px;margin-bottom:8px}
 .card.done .tt{text-decoration:line-through;opacity:.5}
 .row{display:flex;align-items:center;gap:10px}
-.st{border-radius:20px;padding:5px 12px;font-size:13px;font-weight:800;flex:none;min-width:92px}
-.st.new{background:var(--bg);color:var(--mute)}
-.st.work{background:#fff3cd;color:#8a5a00;border-color:#fff3cd}
-.st.done{background:#d6f5e6;color:#0b6b43;border-color:#d6f5e6}
-@media (prefers-color-scheme:dark){.st.work{background:#4a3b12;color:#ffd978;border-color:#4a3b12}.st.done{background:#143b2a;color:#7be0b0;border-color:#143b2a}}
-.tt{flex:1;font-weight:600;word-break:break-word;cursor:pointer}
-.due{font-size:13px;font-weight:700;color:var(--mute);white-space:nowrap}
-.due.late{color:#e11d48}
-.nt{margin:6px 0 0 2px;color:var(--mute);font-size:14px;white-space:pre-wrap;word-break:break-word}
-.edit{margin-top:10px;display:grid;gap:8px}
-.edit textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:70px;resize:vertical}
-.edit .r{display:flex;gap:8px;flex-wrap:wrap}
-.add .col{flex:1 1 100%;display:flex;gap:8px;flex-wrap:wrap}
-.danger{color:#e11d48}
 .ck{appearance:none;-webkit-appearance:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);padding:0;flex:none;cursor:pointer;display:grid;place-items:center;background:var(--card)}
-.ck:hover{border-color:var(--acc)}
 .ck:checked{background:var(--acc);border-color:var(--acc)}
 .ck:checked::after{content:"✓";color:var(--accfg);font-weight:800;font-size:15px}
+.tt{flex:1;font-weight:600;word-break:break-word;cursor:pointer}
+.x{border:0;background:none;color:var(--mute);padding:2px 8px;font-size:20px}
+.nt{margin:6px 0 0 36px;color:var(--mute);font-size:14px;white-space:pre-wrap;word-break:break-word}
+.by{margin:4px 0 0 36px;font-size:12px;color:var(--mute)}
+.edit{margin-top:10px;display:grid;gap:8px}
+.edit textarea{min-height:70px;resize:vertical}
+.edit .r{display:flex;gap:8px;flex-wrap:wrap}
+.danger{color:var(--late)}
+.empty,.deny{padding:40px 16px;text-align:center;color:var(--mute)}
+.empty big{display:block;font-size:40px;margin-bottom:6px}
+.add{flex:none;padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--line)}
+.add .r{display:flex;gap:8px}
+.add .r+.r{margin-top:8px}
+.add #txt{flex:1}
+.add #due{flex:0 0 auto;width:150px}
+.add #nt{flex:1}
+.toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+.toast.on{opacity:1}
 </style>
-<style>.wrap{padding-top:12px}.deny{padding:40px 16px;text-align:center;color:var(--mute)}</style>
 </head>
 <body>
-<div class="wrap">
- <div class="head">
-  <div class="hl">
-   <div class="ring"><svg viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="36"/><circle class="fg" id="arc" cx="42" cy="42" r="36"/></svg><b id="pct">0%</b></div>
-   <div><h1 style="text-transform:none">Зошит завдань</h1><div class="sub" id="sub"></div></div>
-  </div>
-  <div class="nav"><button id="share">Поділитися</button></div>
+<div class="app">
+ <div class="top">
+  <div class="ring"><svg viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="36"/><circle class="fg" id="arc" cx="42" cy="42" r="36"/></svg><b id="pct">0%</b></div>
+  <div class="ttl"><h1>Зошит завдань</h1><div class="sub" id="sub"></div></div>
+  <button id="share">Поділитися</button>
  </div>
- <div class="tools" id="tabs"></div>
- <input class="search" id="q" type="search" placeholder="Пошук по завданнях…" aria-label="Пошук" style="width:100%;margin-bottom:14px">
+ <div class="tools">
+  <div class="tabs" id="tabs"></div>
+  <input id="q" type="search" placeholder="Пошук по завданнях…" aria-label="Пошук">
+ </div>
  <div id="list"></div>
+ <div class="add">
+  <div class="r"><input type="text" id="txt" placeholder="Нове завдання…" maxlength="160" aria-label="Нове завдання"><button class="pri" id="addbtn">Додати</button></div>
+  <div class="r"><input type="date" id="due" aria-label="Термін виконання"><input type="text" id="nt" placeholder="Коментар (необов’язково)" maxlength="300" aria-label="Коментар"></div>
+ </div>
 </div>
-<div class="add"><div>
- <input type="text" id="txt" placeholder="Нове завдання…" maxlength="160" aria-label="Нове завдання">
- <input type="date" id="due" aria-label="Термін виконання">
- <div class="col"><input type="text" id="nt" placeholder="Коментар (необов’язково)" maxlength="300" style="flex:1 1 200px;background:var(--bg);border-color:transparent" aria-label="Коментар"><button class="pri" id="addbtn">Додати</button></div>
-</div></div>
 <div class="toast" id="toast"></div>
 <script>
 var tg=window.Telegram&&window.Telegram.WebApp,all=[],filter="open",editing=null,query="",state="loading";
@@ -130,11 +93,13 @@ function theme(){
  r.setProperty("--line","color-mix(in srgb, "+(p.text_color||"#888888")+" 16%, transparent)");
  try{tg.setHeaderColor("secondary_bg_color")}catch(e){}
 }
-if(tg){tg.ready();tg.expand();theme();tg.onEvent("themeChanged",theme)}
+if(tg){tg.ready();tg.expand();theme();tg.onEvent("themeChanged",theme);try{tg.disableVerticalSwipes()}catch(e){}}
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function iso(d){var m=d.getMonth()+1,x=d.getDate();return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(x<10?"0":"")+x}
-function fmt(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("uk-UA",{day:"numeric",month:"short"})}
+function pd(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
+function fmt(s){return pd(s).toLocaleDateString("uk-UA",{day:"numeric",month:"short"})}
+function fmtLong(s){var t=pd(s).toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long"});return t.charAt(0).toUpperCase()+t.slice(1)}
 function toast(m){var t=$("toast");t.textContent=m;t.className="toast on";setTimeout(function(){t.className="toast"},2400)}
 function api(method,url,body){
  return fetch(url,{method:method,headers:{"Content-Type":"application/json","Authorization":"tma "+(tg?tg.initData:"")},body:body?JSON.stringify(body):undefined})
@@ -145,15 +110,13 @@ function load(){
   if(e.status===401||e.status===403){state="denied";render()}else if(state==="loading"){state="error";render()}
  });
 }
-function cmp(a,b){
- if(a.done!==b.done)return a.done?1:-1;
- var x=a.due||"9999",y=b.due||"9999";if(x!==y)return x<y?-1:1;
- return a.ts-b.ts;
-}
+function byTs(a,b){if(a.done!==b.done)return a.done?1:-1;return a.ts-b.ts}
 function render(){
- if(state==="denied"){$("list").innerHTML='<div class="deny">Немає доступу.<br>Відкрийте застосунок з Telegram і переконайтеся, що ви в групі команди.</div>';return}
- if(state==="error"){$("list").innerHTML='<div class="deny">Не вдалося завантажити завдання. Спробуйте ще раз пізніше.</div>';return}
- var today=iso(new Date()),total=all.length,done=all.filter(function(t){return t.done}).length,pc=total?Math.round(done/total*100):0;
+ var box=$("list"),keep=box.scrollTop;
+ if(state==="denied"){box.innerHTML='<div class="deny">Немає доступу.<br>Відкрийте застосунок з Telegram і переконайтеся, що ви в групі команди.</div>';return}
+ if(state==="error"){box.innerHTML='<div class="deny">Не вдалося завантажити завдання. Спробуйте ще раз пізніше.</div>';return}
+ var now=new Date(),today=iso(now),tm=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1),tomorrow=iso(tm);
+ var total=all.length,done=all.filter(function(t){return t.done}).length,pc=total?Math.round(done/total*100):0;
  $("pct").textContent=pc+"%";$("arc").style.strokeDashoffset=226-226*pc/100;
  $("sub").textContent=total?"Зроблено "+done+" із "+total:"Поки що порожньо";
  var tabs=[["open","Не зроблені"],["done","Зроблені"],["all","Усі"]];
@@ -163,19 +126,35 @@ function render(){
   if(filter==="open"&&t.done)return false;
   if(filter==="done"&&!t.done)return false;
   return!q||((t.t||"")+" "+(t.note||"")).toLowerCase().indexOf(q)>=0;
- }).sort(cmp);
- var h="";
- arr.forEach(function(t){
-  var late=t.due&&t.due<today&&!t.done,dl="";
-  if(t.due)dl='<span class="due'+(late?" late":"")+'">'+(t.due===today?"сьогодні":fmt(t.due))+(late?" · прострочено":"")+'</span>';
-  h+='<div class="card'+(t.done?" done":"")+'"><div class="row"><input type="checkbox" class="ck" data-k="'+t.id+'"'+(t.done?" checked":"")+' aria-label="Зроблено"><span class="tt" data-e="'+t.id+'">'+esc(t.t)+'</span>'+dl+'<button class="x" data-e="'+t.id+'" aria-label="Редагувати">✎</button></div>';
-  if(t.note&&editing!==t.id)h+='<div class="nt">'+esc(t.note)+'</div>';
-  if(editing===t.id){
-   h+='<div class="edit"><input type="text" id="e_t" value="'+esc(t.t)+'" maxlength="160" aria-label="Назва"><div class="r"><input type="date" id="e_d" value="'+esc(t.due||"")+'" aria-label="Термін"></div><textarea id="e_n" maxlength="300" placeholder="Коментар" aria-label="Коментар">'+esc(t.note||"")+'</textarea><div class="r"><button class="pri" data-save="'+t.id+'">Зберегти</button><button data-cancel="1">Скасувати</button><button class="danger" data-del="'+t.id+'">Видалити</button></div></div>';
-  }
-  h+='<div class="by" style="margin-top:6px">додав(ла): '+esc(t.by)+'</div></div>';
  });
- $("list").innerHTML=h||'<div class="empty"><big>📓</big>'+(total?"Нічого не знайдено.":"У зошиті ще немає завдань.<br>Додайте перше знизу.")+'</div>';
+ var groups={};
+ arr.forEach(function(t){
+  var k=t.due?(!t.done&&t.due<today?"overdue":t.due):"none";
+  (groups[k]=groups[k]||[]).push(t);
+ });
+ var dates=Object.keys(groups).filter(function(k){return k!=="overdue"&&k!=="none"}).sort();
+ var order=[];if(groups.overdue)order.push("overdue");
+ order=order.concat(dates);if(groups.none)order.push("none");
+ var h="";
+ order.forEach(function(k){
+  var g=groups[k].sort(function(a,b){
+   if(k==="overdue"&&a.due!==b.due)return a.due<b.due?-1:1;
+   return byTs(a,b);
+  });
+  var label=k==="overdue"?"Прострочені":k==="none"?"Без терміну":k===today?"Сьогодні · "+fmtLong(k):k===tomorrow?"Завтра · "+fmtLong(k):fmtLong(k);
+  h+='<div class="day'+(k==="overdue"?" late":"")+'"><span>'+esc(label)+'</span><span>'+g.length+'</span></div>';
+  g.forEach(function(t){
+   var dl=(k==="overdue")?'<span class="by" style="margin:0">'+fmt(t.due)+'</span>':"";
+   h+='<div class="card'+(t.done?" done":"")+'"><div class="row"><input type="checkbox" class="ck" data-k="'+t.id+'"'+(t.done?" checked":"")+' aria-label="Зроблено"><span class="tt" data-e="'+t.id+'">'+esc(t.t)+'</span>'+dl+'<button class="x" data-e="'+t.id+'" aria-label="Редагувати">✎</button></div>';
+   if(t.note&&editing!==t.id)h+='<div class="nt">'+esc(t.note)+'</div>';
+   if(editing===t.id){
+    h+='<div class="edit"><input type="text" id="e_t" value="'+esc(t.t)+'" maxlength="160" aria-label="Назва"><div class="r"><input type="date" id="e_d" value="'+esc(t.due||"")+'" aria-label="Термін"></div><textarea id="e_n" maxlength="300" placeholder="Коментар" aria-label="Коментар">'+esc(t.note||"")+'</textarea><div class="r"><button class="pri" data-save="'+t.id+'">Зберегти</button><button data-cancel="1">Скасувати</button><button class="danger" data-del="'+t.id+'">Видалити</button></div></div>';
+   }
+   h+='<div class="by">додав(ла): '+esc(t.by)+'</div></div>';
+  });
+ });
+ box.innerHTML=h||'<div class="empty"><big>📓</big>'+(total?"Нічого не знайдено.":"У зошиті ще немає завдань.<br>Додайте перше знизу.")+'</div>';
+ box.scrollTop=keep;
 }
 function fail(){toast("Не вдалося зберегти. Спробуйте ще раз.");load()}
 function find(id){return all.filter(function(t){return String(t.id)===String(id)})[0]}
@@ -191,7 +170,7 @@ $("txt").onkeydown=function(e){if(e.key==="Enter")add()};
 $("q").oninput=function(){query=this.value;render()};
 document.addEventListener("change",function(e){var k=e.target.dataset&&e.target.dataset.k;if(k)patch(k,{done:e.target.checked})});
 document.addEventListener("click",function(e){
- var f=e.target.closest("[data-f]");if(f){filter=f.dataset.f;render();return}
+ var f=e.target.closest("[data-f]");if(f){filter=f.dataset.f;$("list").scrollTop=0;render();return}
  var ed=e.target.closest("[data-e]");if(ed){editing=String(editing)===ed.dataset.e?null:+ed.dataset.e;render();return}
  var sv=e.target.closest("[data-save]");
  if(sv){var v=$("e_t").value.trim();if(!v){toast("Назва не може бути порожньою");return}
@@ -201,7 +180,7 @@ document.addEventListener("click",function(e){
  if(d){var id2=d.dataset.del;editing=null;all=all.filter(function(t){return String(t.id)!==id2});render();api("DELETE","/api/tasks/"+id2).then(load).catch(fail)}
 });
 $("share").onclick=function(){
- var act=all.filter(function(t){return!t.done}).sort(cmp);
+ var act=all.filter(function(t){return!t.done}).sort(function(a,b){var x=a.due||"9999",y=b.due||"9999";return x<y?-1:x>y?1:a.ts-b.ts});
  if(!act.length){toast("Немає активних завдань");return}
  var out="📓 Зошит завдань\n\n";
  act.forEach(function(t){out+="⬜ "+t.t+(t.due?" (до "+fmt(t.due)+")":"")+(t.note?"\n    "+t.note:"")+"\n"});
